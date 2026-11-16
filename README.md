@@ -10,13 +10,37 @@
 
 ## Текущее состояние
 
-Реализован первый этап — **Core**: базовая структура проекта, конфигурация приложения и общая модель нормализованного события безопасности `SecurityEvent`. На этой модели будут строиться последующие компоненты: парсеры, нормализация, Detection Engine, Correlation Engine и Alerting.
+- **Core**: базовая структура проекта, конфигурация приложения и общая модель нормализованного события безопасности `SecurityEvent`.
+- **Linux SSH Authentication Log Analyzer**: чтение Linux auth logs, разбор событий SSH-аутентификации и их преобразование в `SecurityEvent`.
 
 ## Назначение Core
 
 - Единая модель события `SecurityEvent`, независимая от источника данных.
 - Загрузка конфигурации приложения из переменных окружения.
 - Общие перечисления: источники событий (`EventSource`) и уровни важности (`Severity`).
+
+## Linux SSH Authentication Log Analyzer
+
+Анализирует записи sshd из `/var/log/auth.log` (Debian/Ubuntu) и `/var/log/secure` (RHEL):
+
+- `Failed password ...` — неудачная аутентификация (`ssh_authentication_failed`, в том числе для invalid user);
+- `Accepted password/publickey/... ...` — успешная аутентификация (`ssh_authentication_success`).
+
+Конвейер состоит из трёх компонентов:
+
+- `collectors` — построчное чтение файла без загрузки в память;
+- `parsers` — разбор строки в структурированную запись `SshAuthRecord`;
+- `normalization` — преобразование записи в `SecurityEvent`.
+
+Точка входа — `analyze_ssh_log(path, year=..., tz=...)`. Год и часовой пояс передаются явно, так как syslog-метка времени их не содержит:
+
+```python
+from datetime import UTC
+from security_detection_engine.analyzer import analyze_ssh_log
+
+result = analyze_ssh_log("auth.log", year=2024, tz=UTC)
+print(result.events, result.unsupported_lines, result.invalid_lines)
+```
 
 ## Технологии
 
@@ -70,10 +94,12 @@ security-detection-engine/
 ├── src/
 │   └── security_detection_engine/
 │       ├── __init__.py
+│       ├── analyzer.py        # Точка входа анализа SSH-логов
 │       ├── config.py          # Конфигурация приложения
-│       └── models/
-│           ├── __init__.py
-│           └── event.py       # Модель SecurityEvent
+│       ├── collectors/        # Чтение лог-файлов
+│       ├── models/            # Модель SecurityEvent
+│       ├── parsers/           # Разбор строк логов
+│       └── normalization/     # Преобразование в SecurityEvent
 ├── tests/                     # Автоматизированные тесты
 ├── .gitignore
 ├── pyproject.toml

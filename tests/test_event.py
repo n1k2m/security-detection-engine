@@ -102,6 +102,7 @@ def test_host_whitespace_stripped():
 
     assert event.host == "dc-01"
 
+
 def test_data_is_not_shared_between_events():
     first = make_event()
     second = make_event()
