@@ -13,6 +13,7 @@
 - **Core**: базовая структура проекта, конфигурация приложения и общая модель нормализованного события безопасности `SecurityEvent`.
 - **Linux SSH Authentication Log Analyzer**: чтение Linux auth logs, разбор событий SSH-аутентификации и их преобразование в `SecurityEvent`.
 - **Detection Engine**: проверка нормализованных событий на соответствие YAML-правилам обнаружения и формирование алертов.
+- **Network Analyzer**: чтение PCAP-файлов, извлечение метаданных пакетов (IPv4, TCP, UDP, ICMP) и их нормализация в `SecurityEvent`.
 
 ## Назначение Core
 
@@ -77,10 +78,23 @@ engine = DetectionEngine(rules)
 alerts = engine.analyze_events(result.events)
 ```
 
+## Network Analyzer
+
+Читает PCAP-файлы и преобразует пакеты IPv4/TCP/UDP/ICMP в события `network_packet_observed`. Конвейер: `reader` (последовательное чтение через `PcapReader`) → `parser` (извлечение адресов, портов, флагов TCP, размера и метки времени) → `normalizer` (преобразование в `SecurityEvent`).
+
+```python
+from security_detection_engine.network import analyze_pcap
+
+result = analyze_pcap("traffic.pcap")
+print(result.events, result.parsed_packets, result.unsupported_packets)
+```
+
 ## Технологии
 
 - Python 3.11
 - Pydantic 2 / pydantic-settings — модели данных, валидация, конфигурация
+- PyYAML — загрузка правил обнаружения
+- Scapy — чтение и разбор PCAP-файлов
 - pytest — тестирование
 - Ruff — проверка и форматирование кода
 
@@ -134,6 +148,7 @@ security-detection-engine/
 │       ├── collectors/        # Чтение лог-файлов
 │       ├── detection/         # Detection Engine и загрузка правил
 │       ├── models/            # Модель SecurityEvent
+│       ├── network/           # Network Analyzer (PCAP)
 │       ├── normalization/     # Преобразование в SecurityEvent
 │       ├── parsers/           # Разбор строк логов
 │       └── rules/             # YAML-правила обнаружения
