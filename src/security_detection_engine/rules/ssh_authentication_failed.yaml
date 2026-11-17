@@ -1,0 +1,11 @@
+rule_id: SSH-001
+name: SSH Authentication Failure
+description: Detects failed SSH authentication attempts
+severity: low
+event_type: ssh_authentication_failed
+enabled: true
+
+conditions:
+  - field: data.authentication_method
+    operator: equals
+    value: password

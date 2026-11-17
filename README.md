@@ -12,6 +12,7 @@
 
 - **Core**: базовая структура проекта, конфигурация приложения и общая модель нормализованного события безопасности `SecurityEvent`.
 - **Linux SSH Authentication Log Analyzer**: чтение Linux auth logs, разбор событий SSH-аутентификации и их преобразование в `SecurityEvent`.
+- **Detection Engine**: проверка нормализованных событий на соответствие YAML-правилам обнаружения и формирование алертов.
 
 ## Назначение Core
 
@@ -40,6 +41,40 @@ from security_detection_engine.analyzer import analyze_ssh_log
 
 result = analyze_ssh_log("auth.log", year=2024, tz=UTC)
 print(result.events, result.unsupported_lines, result.invalid_lines)
+```
+
+## Detection Engine
+
+Проверяет `SecurityEvent` на соответствие правилам обнаружения и формирует алерты. Движок не зависит от источника событий и не работает с файлами или базой данных напрямую.
+
+Правила описываются в YAML и валидируются через Pydantic:
+
+```yaml
+rule_id: SSH-001
+name: SSH Authentication Failure
+description: Detects failed SSH authentication attempts
+severity: low
+event_type: ssh_authentication_failed
+enabled: true
+
+conditions:
+  - field: data.authentication_method
+    operator: equals
+    value: password
+```
+
+Поддерживаемые операторы условий: `equals`, `not_equals`, `contains`, `greater_than`, `less_than`.
+
+```python
+from security_detection_engine.detection import (
+    DetectionEngine,
+    load_rules_from_directory,
+)
+
+rules = load_rules_from_directory("src/security_detection_engine/rules")
+engine = DetectionEngine(rules)
+
+alerts = engine.analyze_events(result.events)
 ```
 
 ## Технологии
@@ -97,9 +132,11 @@ security-detection-engine/
 │       ├── analyzer.py        # Точка входа анализа SSH-логов
 │       ├── config.py          # Конфигурация приложения
 │       ├── collectors/        # Чтение лог-файлов
+│       ├── detection/         # Detection Engine и загрузка правил
 │       ├── models/            # Модель SecurityEvent
+│       ├── normalization/     # Преобразование в SecurityEvent
 │       ├── parsers/           # Разбор строк логов
-│       └── normalization/     # Преобразование в SecurityEvent
+│       └── rules/             # YAML-правила обнаружения
 ├── tests/                     # Автоматизированные тесты
 ├── .gitignore
 ├── pyproject.toml
