@@ -14,6 +14,7 @@
 - **Linux SSH Authentication Log Analyzer**: чтение Linux auth logs, разбор событий SSH-аутентификации и их преобразование в `SecurityEvent`.
 - **Detection Engine**: проверка нормализованных событий на соответствие YAML-правилам обнаружения и формирование алертов.
 - **Network Analyzer**: чтение PCAP-файлов, извлечение метаданных пакетов (IPv4, TCP, UDP, ICMP) и их нормализация в `SecurityEvent`.
+- **Windows Event Log Analyzer**: чтение XML-экспорта Windows Security Event Log (Event ID 4624 и 4625) и нормализация событий входа в `SecurityEvent`.
 
 ## Назначение Core
 
@@ -89,6 +90,17 @@ result = analyze_pcap("traffic.pcap")
 print(result.events, result.parsed_packets, result.unsupported_packets)
 ```
 
+## Windows Event Log Analyzer
+
+Читает XML-экспорт Windows Security Event Log и преобразует события входа в `SecurityEvent`: Event ID 4624 → `windows_logon_success`, Event ID 4625 → `windows_logon_failed`. Конвейер: `reader` (потоковый разбор XML через `iterparse`, пространства имён игнорируются) → `parser` (извлечение System и EventData) → `normalizer` (преобразование в `SecurityEvent`).
+
+```python
+from security_detection_engine.windows import analyze_windows_log
+
+result = analyze_windows_log("security_events.xml")
+print(result.events, result.parsed_events, result.unsupported_events)
+```
+
 ## Технологии
 
 - Python 3.11
@@ -151,7 +163,8 @@ security-detection-engine/
 │       ├── network/           # Network Analyzer (PCAP)
 │       ├── normalization/     # Преобразование в SecurityEvent
 │       ├── parsers/           # Разбор строк логов
-│       └── rules/             # YAML-правила обнаружения
+│       ├── rules/             # YAML-правила обнаружения
+│       └── windows/           # Windows Event Log Analyzer (XML)
 ├── tests/                     # Автоматизированные тесты
 ├── .gitignore
 ├── pyproject.toml
