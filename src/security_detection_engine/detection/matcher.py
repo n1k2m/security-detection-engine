@@ -18,13 +18,13 @@ def match_rule(rule: DetectionRule, event: SecurityEvent) -> bool:
 
 def match_condition(event_data: dict[str, Any], condition: Condition) -> bool:
     """Проверяет одно условие; отсутствующее поле означает отсутствие совпадения."""
-    found, actual = _resolve_field(event_data, condition.field)
+    found, actual = resolve_field(event_data, condition.field)
     if not found:
         return False
     return _apply_operator(condition.operator, actual, condition.value)
 
 
-def _resolve_field(data: dict[str, Any], field: str) -> tuple[bool, Any]:
+def resolve_field(data: dict[str, Any], field: str) -> tuple[bool, Any]:
     """Извлекает значение поля по пути вида 'data.source_ip'."""
     current: Any = data
     for part in field.split("."):

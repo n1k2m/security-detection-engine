@@ -1,11 +1,14 @@
 from pathlib import Path
+from typing import TypeVar
 
 import yaml
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from security_detection_engine.detection.models import DetectionRule
 
 _SUPPORTED_SUFFIXES = (".yaml", ".yml")
+
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class RuleLoadError(Exception):
@@ -14,7 +17,19 @@ class RuleLoadError(Exception):
 
 def load_rule(path: str | Path) -> DetectionRule:
     """Загружает одно правило обнаружения из YAML-файла."""
-    path = Path(path)
+    return load_rule_file(Path(path), DetectionRule)
+
+
+def load_rules_from_directory(directory: str | Path) -> list[DetectionRule]:
+    """Загружает все YAML-правила из директории.
+
+    Файлы с другими расширениями игнорируются.
+    """
+    return load_rule_directory(Path(directory), DetectionRule)
+
+
+def load_rule_file(path: Path, model: type[ModelT]) -> ModelT:
+    """Загружает правило заданной модели из YAML-файла."""
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     except OSError as exc:
@@ -26,22 +41,21 @@ def load_rule(path: str | Path) -> DetectionRule:
         raise RuleLoadError(f"файл {path} не содержит описание правила")
 
     try:
-        return DetectionRule.model_validate(raw)
+        return model.model_validate(raw)
     except ValidationError as exc:
         raise RuleLoadError(f"некорректное правило в файле {path}: {exc}") from exc
 
 
-def load_rules_from_directory(directory: str | Path) -> list[DetectionRule]:
-    """Загружает все YAML-правила из директории.
+def load_rule_directory(directory: Path, model: type[ModelT]) -> list[ModelT]:
+    """Загружает все YAML-правила заданной модели из директории.
 
     Файлы с другими расширениями игнорируются.
     """
-    directory = Path(directory)
     if not directory.is_dir():
         raise RuleLoadError(f"директория правил не найдена: {directory}")
 
     rules = []
     for path in sorted(directory.iterdir()):
         if path.is_file() and path.suffix.lower() in _SUPPORTED_SUFFIXES:
-            rules.append(load_rule(path))
+            rules.append(load_rule_file(path, model))
     return rules

@@ -15,6 +15,7 @@
 - **Detection Engine**: проверка нормализованных событий на соответствие YAML-правилам обнаружения и формирование алертов.
 - **Network Analyzer**: чтение PCAP-файлов, извлечение метаданных пакетов (IPv4, TCP, UDP, ICMP) и их нормализация в `SecurityEvent`.
 - **Windows Event Log Analyzer**: чтение XML-экспорта Windows Security Event Log (Event ID 4624 и 4625) и нормализация событий входа в `SecurityEvent`.
+- **Correlation Engine**: обнаружение упорядоченных последовательностей связанных событий во временном окне с группировкой по полям.
 
 ## Назначение Core
 
@@ -101,6 +102,42 @@ result = analyze_windows_log("security_events.xml")
 print(result.events, result.parsed_events, result.unsupported_events)
 ```
 
+## Correlation Engine
+
+Обнаруживает упорядоченные последовательности связанных `SecurityEvent` во временном окне. События сортируются по времени, группируются по значениям полей `group_by`, внутри группы ищется подпоследовательность шагов правила (между шагами допустимы другие события). Правила описываются в YAML и переиспользуют условия `Condition` из Detection Engine:
+
+```yaml
+rule_id: CORR-SSH-001
+name: SSH brute force followed by successful login
+description: Failed SSH logins followed by a successful login from the same IP
+severity: high
+enabled: true
+time_window_seconds: 300
+
+group_by:
+  - data.source_ip
+
+steps:
+  - event_type: ssh_authentication_failed
+  - event_type: ssh_authentication_failed
+  - event_type: ssh_authentication_failed
+  - event_type: ssh_authentication_success
+```
+
+Повторяющиеся шаги выражают требование нескольких событий одного типа.
+
+```python
+from security_detection_engine.correlation import (
+    CorrelationEngine,
+    load_correlation_rules_from_directory,
+)
+
+rules = load_correlation_rules_from_directory(
+    "src/security_detection_engine/rules/correlation"
+)
+alerts = CorrelationEngine(rules).analyze_events(events)
+```
+
 ## Технологии
 
 - Python 3.11
@@ -158,6 +195,7 @@ security-detection-engine/
 │       ├── analyzer.py        # Точка входа анализа SSH-логов
 │       ├── config.py          # Конфигурация приложения
 │       ├── collectors/        # Чтение лог-файлов
+│       ├── correlation/       # Correlation Engine
 │       ├── detection/         # Detection Engine и загрузка правил
 │       ├── models/            # Модель SecurityEvent
 │       ├── network/           # Network Analyzer (PCAP)

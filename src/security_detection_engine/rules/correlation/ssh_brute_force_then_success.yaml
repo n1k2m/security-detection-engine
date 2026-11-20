@@ -1,0 +1,29 @@
+rule_id: CORR-SSH-001
+name: SSH brute force followed by successful login
+description: >-
+  Several failed SSH password logins followed by a successful login
+  from the same source IP within the time window
+severity: high
+enabled: true
+time_window_seconds: 300
+
+group_by:
+  - data.source_ip
+
+steps:
+  - event_type: ssh_authentication_failed
+    conditions:
+      - field: data.authentication_method
+        operator: equals
+        value: password
+  - event_type: ssh_authentication_failed
+    conditions:
+      - field: data.authentication_method
+        operator: equals
+        value: password
+  - event_type: ssh_authentication_failed
+    conditions:
+      - field: data.authentication_method
+        operator: equals
+        value: password
+  - event_type: ssh_authentication_success
